@@ -74,24 +74,30 @@ def plotProductionOverCapacity(productionDataFrame, capacityDataFrame, freq='Y')
     #resample both dataframe to monthly values
     pdf = productionDataFrame.resample(freq).sum()
     cdf = capacityDataFrame.resample(freq).pad()
-    productions_s = pdf.loc[:, 'Production solaire']
-    productions_e = pdf.loc[:, 'Production éolien']
-    capacite_s = cdf.loc[:, 'Parc solaire (MW)']
-    capacite_e = cdf.loc[:, 'Parc eolien (MW)']
-    t0 = capacite_s.index[0]
+    pdf.rename(columns={'Production solaire':'Solaire', 'Production éolien':'Eolien', 'Production nucléaire':'Nucléaire'}, inplace=True)
+    cdf.rename(columns={'Parc solaire (MW)':'Solaire', 'Parc eolien (MW)':'Eolien', 'Parc nucleaire (MW)':'Nucléaire'}, inplace=True)
+    productions = pdf.loc[:, ['Solaire', 'Eolien', 'Nucléaire']]
+    capacites = cdf.loc[:, ['Solaire', 'Eolien', 'Nucléaire']]
+
+    t0 = capacites.index[0]
     period_delta = t0.to_timestamp(freq='H',how='End') - t0.to_timestamp(freq='H', how='Start')
     n_heure_par_periode = period_delta.total_seconds()/3600
     print('n_heure_par_periode (', freq, ')', n_heure_par_periode)
 
-    charge_s = productions_s * 1000 / capacite_s / n_heure_par_periode * 100
-    charge_e = productions_e * 1000 / capacite_e / n_heure_par_periode * 100
-    period = charge_s.index.to_timestamp()
+    charges = productions * 1000 / capacites / n_heure_par_periode * 100
+    period = charges.index.to_timestamp()
 
     plt.figure()
-    plt.plot(period, charge_s, marker=(8, 1, 0), label='solaire')
-    plt.plot(period, charge_e, marker='2', label='eolien')
-    plt.legend()
+    ax0 = plt.subplot(211)
+    plt.plot(period, charges)
+    plt.legend(charges.columns)
     plt.ylabel('charge du parc (%)')
+    plt.title('Charge du parc sur periode = {}'.format(freq))
+    plt.subplot(212, sharex=ax0)
+    plt.plot(period, capacites)
+    plt.legend(charges.columns)
+    plt.ylabel('Capacité du parc (MW)')
+    plt.title('Capacité du parc sur periode = {}'.format(freq))
 
 
 #%% Plot things
