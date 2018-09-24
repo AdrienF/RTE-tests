@@ -9,10 +9,13 @@ Created on Thu Sep 20 20:33:49 2018
 import numpy as np
 import pandas as pd
 from datetime import datetime
+import matplotlib.pyplot as plt
+
 
 # read the full dataset
 # Available from https://www.rte-france.com/fr/eco2mix/eco2mix-telechargement
 dataset = pd.read_csv('eCO2mix_RTE_energie_M.csv', encoding='latin1', sep=';')
+
 # Select only national data
 dataset_for_france = dataset.loc[dataset.Territoire == 'France']
 dff = dataset_for_france.set_index('Mois')
@@ -21,6 +24,40 @@ dff.index.set_names('Periode', inplace=True)
 #convert strings to datetime objects
 dff.index = pd.to_datetime(dff.index)
 
+#remove data of the current year
+current_year = str(datetime.today().year)
+dff = dff[dff.index < current_year]
+
 #convert monthly timestamps to year period (summing monthly productions)
 dff_years = dff.resample('Y', kind='period').sum()
-print(dff_years)
+dff_months = dff.resample('M', kind='period').sum()
+
+def plotData(dataframe):
+    #data slices
+    periods = np.array(dataframe.index.to_timestamp())
+    productions = dataframe.loc[:, 'Production totale':'Production bio-énergies']
+    productions_s = dataframe.loc[:, 'Production solaire']
+    productions_e = dataframe.loc[:, 'Production éolien']
+    consommation = dataframe['Consommation totale']
+    echanges = dataframe.loc[:, 'Echanges export':'Echanges avec l\'Allemagne et la Belgique']
+
+    #Cumulative plots
+    #plot productions type (remove total and 'thermique total')
+    idx = [1, 3, 4, 5, 6, 7, 8, 9]
+    ax0 = plt.subplot(211)
+    plt.stackplot(periods, np.array(productions.iloc[:, idx].T), baseline='zero')
+    plt.plot(periods, np.array(consommation), '--k', linewidth=1)
+    plt.legend(np.concatenate(( ['Consommation'], np.array(productions.columns[idx])), axis=0))
+    plt.ylabel('GWh')
+    plt.title('Production électrique en France par moyen de production')
+    plt.gcf().autofmt_xdate()
+
+    plt.subplot(212, sharex=ax0)
+    plt.plot(periods, np.array(productions.iloc[:, idx]))
+    plt.plot(periods, np.array(productions_e), '2k')
+    plt.plot(periods, np.array(productions_s), color='k', marker=(8, 1, 0), linestyle='None')
+    plt.legend(productions.columns[idx])
+    plt.ylabel('GWh')
+    plt.gcf().autofmt_xdate()
+
+plotData(dff_months)
